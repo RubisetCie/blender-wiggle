@@ -1,6 +1,6 @@
 # Wiggle 2 (Fork) for Blender
 # Original Author: Steve Miller
-# Forked and modified by: Labhatorian
+# Forked and modified by: Labhatorian & Rubisetcie
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,25 +14,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-#
-# Modifications made:
-# - Fixed bake error in newer Blender versions.
-# - Updated bl_info.
-# - Cleaned up script.
-# - Added new settings and algorithm for full bone collisions.
-
-bl_info = {
-    "name": "Wiggle 2 (Fork)",
-    "author": "Labhatorian",
-    "original_author": "Steve Miller",
-    "version": (2, 0, 2),
-    "blender": (3, 00, 0),
-    "location": "3D Viewport > Animation Panel",
-    "description": "Simulate spring-like physics on Bone transforms",
-    "warning": "",
-    "wiki_url": "https://github.com/Labhatorian/blender-wiggle-2",
-    "category": "Animation",
-}
 
 import bpy
 from mathutils import Vector, Matrix, Euler, Quaternion, geometry
@@ -44,13 +25,13 @@ def relative_matrix(m1,m2):
 
 def flatten(mat):
     dim = len(mat)
-    return [mat[j][i] for i in range(dim) 
+    return [mat[j][i] for i in range(dim)
                       for j in range(dim)]
 
 def reset_scene():
     for wo in bpy.context.scene.wiggle.list:
         reset_ob(bpy.data.objects.get(wo.name))
-                              
+
 def reset_ob(ob):
     wo = bpy.context.scene.wiggle.list.get(ob.name)
     for wb in wo.list:
@@ -61,7 +42,7 @@ def reset_bone(b):
     b.wiggle.position_head = b.wiggle.position_last_head = (b.id_data.matrix_world @ b.matrix).translation
     b.wiggle.velocity = b.wiggle.velocity_head = b.wiggle.collision_normal = b.wiggle.collision_normal_head = Vector((0,0,0))
     b.wiggle.matrix = flatten(b.id_data.matrix_world @ b.matrix)
-                      
+
 def build_list():
     bpy.context.scene.wiggle.list.clear()
     for ob in bpy.context.scene.objects:
@@ -73,11 +54,11 @@ def build_list():
                 b.wiggle_enable = True
             else:
                 b.wiggle_enable = False
-                
+
         if not wigglebones:
             ob.wiggle_enable = False
             continue
-        
+
         ob.wiggle_enable = True
         wo = bpy.context.scene.wiggle.list.add()
         wo.name = ob.name
@@ -85,7 +66,6 @@ def build_list():
             wb = wo.list.add()
             wb.name = b.name
 
-        
 def update_prop(self,context,prop): 
     if prop in ['wiggle_mute','wiggle_enable']:
         build_list()
@@ -98,7 +78,7 @@ def update_prop(self,context,prop):
                 reset_bone(b)
     #edge case where is_rendering gets stuck, the user fiddling with any setting should unstuck it!
     context.scene.wiggle.is_rendering = False
-        
+
 def get_parent(b):
     p = b.parent
     if not p: return None
@@ -113,21 +93,21 @@ def collider_poll(self, object):
 
 def wind_poll(self, object):
     return object.field and object.field.type =='WIND'
-        
+
 def collide(b, dg, head=False):
     dt = bpy.context.scene.wiggle.dt
-    
+
     if head:
         pos = b.wiggle.position_head
         vel = b.wiggle.velocity_head
         cp = b.wiggle.collision_point_head
         co = b.wiggle.collision_ob_head
         cn = b.wiggle.collision_normal_head
-        
+
         collider_type = b.wiggle_collider_type_head
         wiggle_collider = b.wiggle_collider_head
         wiggle_collection = b.wiggle_collider_collection_head
-        
+
         radius = b.wiggle_radius_head
         sticky = b.wiggle_sticky_head
         bounce = b.wiggle_bounce_head
@@ -138,16 +118,16 @@ def collide(b, dg, head=False):
         cp = b.wiggle.collision_point
         co = b.wiggle.collision_ob
         cn = b.wiggle.collision_normal
-        
+
         collider_type = b.wiggle_collider_type
         wiggle_collider = b.wiggle_collider
         wiggle_collection = b.wiggle_collider_collection
-        
+
         radius = b.wiggle_radius
         sticky = b.wiggle_sticky
         bounce = b.wiggle_bounce
         friction = b.wiggle_friction
-        
+
     colliders = []
     if collider_type == 'Object' and wiggle_collider:
         if wiggle_collider.name in bpy.context.scene.objects:
@@ -155,7 +135,7 @@ def collide(b, dg, head=False):
     if collider_type == 'Collection' and wiggle_collection:
         if wiggle_collection in bpy.context.scene.collection.children_recursive:
             colliders = [ob for ob in wiggle_collection.objects if ob.type == 'MESH']
-            
+
     col = False
     for collider in colliders:
         cmw = collider.matrix_world
@@ -163,14 +143,14 @@ def collide(b, dg, head=False):
         n = (cmw.to_quaternion().to_matrix().to_4x4() @ p[2]).normalized()
         i = cmw @ p[1]
         v = i-pos
-        
+
         if (n.dot(v.normalized()) > 0.01) or (v.length < radius) or (co and (v.length < (radius+sticky))):
             if n.dot(v.normalized()) > 0: #vec is below
                 nv = v.normalized()
             else: #normal is opposite dir to vec
                 nv = -v.normalized()
             pos = i + nv*radius
-            
+
             if co:
                 collision_point = co.matrix_world @ cp
                 pos = pos.lerp(collision_point, friction) # min(1,friction*60*dt))
@@ -180,7 +160,7 @@ def collide(b, dg, head=False):
             cn = nv
     if not col:
         co = None
-    
+
     if head:
         b.wiggle.position_head = pos
         b.wiggle.collision_point_head = cp
@@ -288,11 +268,11 @@ def update_matrix(b,last=False):
             ro = p.wiggle.matrix.to_quaternion().to_matrix().to_4x4() @ diff.to_quaternion().to_matrix().to_4x4()
             sc = Matrix.LocRotScale(None,None,(b.id_data.matrix_world @ b.matrix).decompose()[2])
             m2 = lo @ ro @ sc
-            
+
     else:
         mat = b.id_data.matrix_world @ b.matrix
         m2 = mat
-            
+
     if b.wiggle_head and not b.bone.use_connect:
         m2 = Matrix.Translation(b.wiggle.position_head - m2.translation) @ m2
         loc = Matrix.Translation(relative_matrix(mat, Matrix.Translation(b.wiggle.position_head)).translation)
@@ -300,7 +280,7 @@ def update_matrix(b,last=False):
     vec = relative_matrix(m2, Matrix.Translation(b.wiggle.position)).translation
     rxz = vec.to_track_quat('Y','Z')
     rot = rxz.to_matrix().to_4x4()
-    
+
     if b.bone.inherit_scale == 'FULL':
         l0 = b.bone.length
         l1=relative_matrix(mat, Matrix.Translation(b.wiggle.position)).translation.length
@@ -313,12 +293,12 @@ def update_matrix(b,last=False):
                 sy = (p.wiggle.matrix @ relative_matrix(p.matrix, b.matrix).translation - b.wiggle.position).length/length_world(b)
         else:
             sy = (b.id_data.matrix_world @ b.matrix.translation - b.wiggle.position).length/length_world(b)
-    
+
     if b.wiggle_head and not b.bone.use_connect:
         sy = (b.wiggle.position_head - b.wiggle.position).length/length_world(b)
-            
+
     scale = Matrix.Scale(sy,4,Vector((0,1,0)))
-    
+
     if last:
         const = False
         for c in b.constraints:
@@ -344,13 +324,13 @@ def pin(b):
             goal = goal @ c.target.pose.bones[c.subtarget].matrix
         b.wiggle.position = b.wiggle.position*(1-c.influence) + goal.translation*c.influence
 
-#can include gravity, wind, etc    
+#can include gravity, wind, etc
 def move(b,dg):
     dt = bpy.context.scene.wiggle.dt
     dt2 = dt * dt
     if dt:
         if b.wiggle_tail:
-            damp = max(min(1 - b.wiggle_damp * dt, 1), 0) 
+            damp = max(min(1 - b.wiggle_damp * dt, 1), 0)
             b.wiggle.velocity = b.wiggle.velocity * damp
             F = bpy.context.scene.gravity * b.wiggle_gravity
             if b.wiggle_wind_ob:
@@ -381,7 +361,7 @@ def move(b,dg):
 
 def constrain(b,i,dg):
     dt = bpy.context.scene.wiggle.dt
-    
+
     def get_fac(mass1,mass2):
         return 0.5 if mass1 == mass2 else mass1/(mass1+mass2)
     
@@ -391,20 +371,19 @@ def constrain(b,i,dg):
         if (Fs*dt*dt).length > s.length:
             return s
         return Fs*dt*dt
-    
+
     def stretch(target, position, fac):
         s = target - position
         return s*(1-fac)
 
     if dt:
-        
         p=get_parent(b)
         if p:
             mat = p.wiggle.matrix @ relative_matrix(p.matrix, b.matrix)
         else:
             mat = b.id_data.matrix_world @ b.matrix
         update_p = False  
-        
+
         #spring
         if b.wiggle_head and not b.bone.use_connect:
             target = mat.translation
@@ -434,7 +413,7 @@ def constrain(b,i,dg):
                 b.wiggle.position = target
         else:
             mat = Matrix.LocRotScale(mat.decompose()[0], mat.decompose()[1],b.matrix.decompose()[2])
-            target = mat @ Vector((0, b.bone.length,0))
+            target = mat @ Vector((0,b.bone.length,0))
             s = spring(target, b.wiggle.position, b.wiggle_stiff)
             if p and b.wiggle_chain and p.wiggle_tail: # and b.bone.use_connect:
                 fac = get_fac(b.wiggle_mass, p.wiggle_mass)# if i else p.wiggle_stretch
@@ -453,12 +432,12 @@ def constrain(b,i,dg):
                     q = v1.rotation_difference(v2)
                     v3 = q @ (p.wiggle.position - p.wiggle.matrix.translation)
                     p.wiggle.position = p.wiggle.matrix.translation + v3*sc
-                    
+
                 b.wiggle.position += s*(1-fac)
                 update_p = True
             else:
                 b.wiggle.position += s
-                
+
         #stretch
         if b.wiggle_head and not b.bone.use_connect:
             if p:
@@ -486,7 +465,7 @@ def constrain(b,i,dg):
                 b.wiggle.position_head += s*(1-fac)
             else:
                 b.wiggle.position_head += s
-                
+
             target = b.wiggle.position_head + (b.wiggle.position - b.wiggle.position_head).normalized()*length_world(b)
             if b.wiggle_tail: #tail stretch only relative to head
                 s = stretch(target, b.wiggle.position, b.wiggle_stretch)
@@ -535,7 +514,7 @@ def constrain(b,i,dg):
             else:
                 collide(b, dg, True)
     update_matrix(b)
- 
+
 @persistent
 def wiggle_pre(scene):
     if (scene.wiggle.lastframe == scene.frame_current) and not scene.wiggle.reset: return
@@ -584,14 +563,14 @@ def wiggle_pre(scene):
                     collider_obj_head = bpy.data.objects.get(b.wiggle_collider_head.name)
                     if collider_obj_head:
                         b.wiggle.collision_obj_name = collider_obj_head.name  # Store name
-    
+
             b.location = Vector((0,0,0))
             b.rotation_quaternion = Quaternion((1,0,0,0))
             b.rotation_euler = Vector((0,0,0))
             b.scale = Vector((1,1,1))
     bpy.context.view_layer.update()
 
-@persistent                
+@persistent
 def wiggle_post(scene,dg):
     if (scene.wiggle.lastframe == scene.frame_current) and not scene.wiggle.reset: return
     if scene.wiggle.reset: return
@@ -636,40 +615,40 @@ def wiggle_post(scene,dg):
                 if b.wiggle.collision_normal.length:
                     vb = b.wiggle.velocity.reflect(b.wiggle.collision_normal).project(b.wiggle.collision_normal)*b.wiggle_bounce
                 b.wiggle.velocity = (b.wiggle.position - b.wiggle.position_last)/max(frames_elapsed,1) + vb
-                vb = Vector((0,0,0)) 
+                vb = Vector((0,0,0))
                 if b.wiggle.collision_normal_head.length:
                     vb = b.wiggle.velocity_head.reflect(b.wiggle.collision_normal_head).project(b.wiggle.collision_normal_head)*b.wiggle_bounce_head
                 b.wiggle.velocity_head = (b.wiggle.position_head - b.wiggle.position_last_head)/max(frames_elapsed,1) + vb
                 b.wiggle.position_last = b.wiggle.position
                 b.wiggle.position_last_head = b.wiggle.position_head
-                
-@persistent        
+
+@persistent
 def wiggle_render_pre(scene):
     scene.wiggle.is_rendering = True
-    
+
 @persistent
 def wiggle_render_post(scene):
     scene.wiggle.is_rendering = False
-    
+
 @persistent
 def wiggle_render_cancel(scene):
     scene.wiggle.is_rendering = False
-    
+
 @persistent
 def wiggle_load(scene):
     build_list()
     s = bpy.context.scene
     s.wiggle.is_rendering = False
-            
+
 class WiggleCopy(bpy.types.Operator):
     """Copy active wiggle settings to selected bones"""
     bl_idname = "wiggle.copy"
     bl_label = "Copy Settings to Selected"
-    
+
     @classmethod
     def poll(cls,context):
         return context.mode in ['POSE'] and context.active_pose_bone and (len(context.selected_pose_bones)>1)
-    
+
     def execute(self,context):
         b = context.active_pose_bone
         b.wiggle_mute = b.wiggle_mute
@@ -677,7 +656,7 @@ class WiggleCopy(bpy.types.Operator):
         b.wiggle_tail = b.wiggle_tail
         b.wiggle_head_mute = b.wiggle_head_mute
         b.wiggle_tail_mute = b.wiggle_tail_mute
-        
+
         b.wiggle_mass = b.wiggle_mass
         b.wiggle_stiff = b.wiggle_stiff
         b.wiggle_stretch = b.wiggle_stretch
@@ -693,7 +672,7 @@ class WiggleCopy(bpy.types.Operator):
         b.wiggle_bounce = b.wiggle_bounce
         b.wiggle_sticky = b.wiggle_sticky
         b.wiggle_chain = b.wiggle_chain
-        
+
         b.wiggle_mass_head = b.wiggle_mass_head
         b.wiggle_stiff_head = b.wiggle_stiff_head
         b.wiggle_stretch_head = b.wiggle_stretch_head
@@ -715,11 +694,11 @@ class WiggleReset(bpy.types.Operator):
     """Reset scene wiggle physics to rest state"""
     bl_idname = "wiggle.reset"
     bl_label = "Reset Physics"
-    
+
     @classmethod
     def poll(cls,context):
         return context.scene.wiggle_enable and context.mode in ['OBJECT', 'POSE']
-    
+
     def execute(self,context):
         context.scene.wiggle.reset = True
         context.scene.frame_set(context.scene.frame_current)
@@ -739,16 +718,16 @@ class WiggleReset(bpy.types.Operator):
         context.scene.wiggle.lastframe = context.scene.frame_current
         if rebuild: build_list()
         return {'FINISHED'}
-    
+
 class WiggleSelect(bpy.types.Operator):
     """Select wiggle bones on selected objects in pose mode"""
     bl_idname = "wiggle.select"
     bl_label = "Select Enabled"
-    
+
     @classmethod
     def poll(cls,context):
         return context.mode in ['POSE']
-    
+
     def execute(self,context):
         bpy.ops.pose.select_all(action='DESELECT')
         rebuild = False
@@ -765,16 +744,16 @@ class WiggleSelect(bpy.types.Operator):
                 b.bone.select = True
         if rebuild: build_list()
         return {'FINISHED'}
-    
+
 class WiggleBake(bpy.types.Operator):
     """Bake this object's visible wiggle bones to keyframes"""
     bl_idname = "wiggle.bake"
     bl_label = "Bake Wiggle"
-    
+
     @classmethod
     def poll(cls,context):
         return context.object
-    
+
     def execute(self,context):
         def push_nla():
             if context.scene.wiggle.bake_overwrite: return
@@ -785,11 +764,11 @@ class WiggleBake(bpy.types.Operator):
             track = context.object.animation_data.nla_tracks.new()
             track.name = action.name
             track.strips.new(action.name, int(action.frame_range[0]), action)
-            
+
         push_nla()
-        
+
         bpy.ops.wiggle.reset()
-            
+
         #preroll
         duration = context.scene.frame_end - context.scene.frame_start
         preroll = context.scene.wiggle.preroll
@@ -813,7 +792,7 @@ class WiggleBake(bpy.types.Operator):
                     for bone in obj.pose.bones:
                         if "wiggle" in bone:  # Only clear properties starting with "wiggle"
                             del bone["wiggle"]  # Remove the 'wiggle' property
-                
+
             bpy.ops.nla.bake(frame_start = context.scene.frame_start,
                             frame_end = context.scene.frame_end,
                             only_selected = True,
@@ -832,20 +811,20 @@ class WiggleBake(bpy.types.Operator):
         context.object.wiggle_freeze = True
         if not context.scene.wiggle.bake_overwrite:
             context.object.animation_data.action.name = 'WiggleAction'
-        return {'FINISHED'}  
+        return {'FINISHED'}
 
 class WigglePanel:
     bl_category = 'Animation'
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    
+
     @classmethod
     def poll(cls,context):
-        return context.object  
+        return context.object
 
 class WIGGLE_PT_Settings(WigglePanel, bpy.types.Panel):
-    bl_label = 'Wiggle 2'
-        
+    bl_label = 'Wiggle'
+
     def draw(self,context):
         row = self.layout.row()
         icon = 'HIDE_ON' if not context.scene.wiggle_enable else 'SCENE_DATA'
@@ -878,20 +857,20 @@ class WIGGLE_PT_Head(WigglePanel, bpy.types.Panel):
     bl_label = ''
     bl_parent_id = 'WIGGLE_PT_Settings'
     bl_options = {'HEADER_LAYOUT_EXPAND'}
-    
+
     @classmethod
     def poll(cls, context):
         return context.scene.wiggle_enable and context.object and not context.object.wiggle_mute and context.active_pose_bone and not context.active_pose_bone.wiggle_mute and not context.active_pose_bone.bone.use_connect
-    
+
     def draw_header(self, context):
         row = self.layout.row(align=True)
         row.prop(context.active_pose_bone, 'wiggle_head')
-    
+
     def draw(self, context):
         b = context.active_pose_bone
         if not b.wiggle_head: 
             return
-        
+
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
@@ -899,7 +878,7 @@ class WIGGLE_PT_Head(WigglePanel, bpy.types.Panel):
         def drawprops(layout, b, props):
             for p in props:
                 layout.prop(b, p)
-        
+
         # Get all selected bones
         selected_bones = context.selected_pose_bones
 
@@ -907,38 +886,38 @@ class WIGGLE_PT_Head(WigglePanel, bpy.types.Panel):
         def set_props_for_selected(attr, value):
             for bone in selected_bones:
                 setattr(bone, attr, value)
-        
+
         col = layout.column(align=True)
         drawprops(col, b, ['wiggle_mass_head', 'wiggle_stiff_head', 'wiggle_stretch_head', 'wiggle_damp_head'])
         col.separator()
         col.prop(b, 'wiggle_gravity_head')
-        
+
         # Wind Object
         row = col.row(align=True)
         row.prop(b, 'wiggle_wind_ob_head')
-        
+
         # Apply wind object to all selected bones if changed
         if b.wiggle_wind_ob_head:
             set_props_for_selected('wiggle_wind_ob_head', b.wiggle_wind_ob_head)
-        
+
         sub = row.row(align=True)
         sub.ui_units_x = 5
         sub.prop(b, 'wiggle_wind_head', text='')
         col.separator()
-        
+
         # Collision settings
         col.prop(b, 'wiggle_collider_type_head', text='Collisions')
 
         collision = False
-        
+
         if b.wiggle_collider_type_head == 'Object':
             row = col.row(align=True)
             row.prop_search(b, 'wiggle_collider_head', context.scene, 'objects', text=' ')
-            
+
             # Apply collider to all selected bones if changed
             if b.wiggle_collider_head:
                 set_props_for_selected('wiggle_collider_head', b.wiggle_collider_head)
-                
+
                 if b.wiggle_collider_head.name in context.scene.objects:
                     collision = True
                 else:
@@ -946,11 +925,11 @@ class WIGGLE_PT_Head(WigglePanel, bpy.types.Panel):
         else:
             row = col.row(align=True)
             row.prop_search(b, 'wiggle_collider_collection_head', bpy.data, 'collections', text=' ')
-            
+
             # Apply collider collection to all selected bones if changed
             if b.wiggle_collider_collection_head:
                 set_props_for_selected('wiggle_collider_collection_head', b.wiggle_collider_collection_head)
-                
+
                 if b.wiggle_collider_collection_head in context.scene.collection.children_recursive:
                     collision = True
                 else:
@@ -959,31 +938,31 @@ class WIGGLE_PT_Head(WigglePanel, bpy.types.Panel):
         if collision:
             col = layout.column(align=True)
             drawprops(col, b, ['wiggle_radius_head', 'wiggle_friction_head', 'wiggle_bounce_head', 'wiggle_sticky_head'])
-        
+
         layout.prop(b, 'wiggle_chain_head')
-            
+
 class WIGGLE_PT_Tail(WigglePanel, bpy.types.Panel):
     bl_label = ''
     bl_parent_id = 'WIGGLE_PT_Settings'
     bl_options = {'HEADER_LAYOUT_EXPAND'}
-    
+
     @classmethod
     def poll(cls, context):
         return context.scene.wiggle_enable and context.object and not context.object.wiggle_mute and context.active_pose_bone and not context.active_pose_bone.wiggle_mute
-    
+
     def draw_header(self, context):
         row = self.layout.row(align=True)
         row.prop(context.active_pose_bone, 'wiggle_tail')
-        
+
     def draw(self, context):
         b = context.active_pose_bone
         if not b.wiggle_tail: 
             return
-        
+
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        
+
         def drawprops(layout, b, props):
             for p in props:
                 layout.prop(b, p)
@@ -995,38 +974,38 @@ class WIGGLE_PT_Tail(WigglePanel, bpy.types.Panel):
         def set_props_for_selected(attr, value):
             for bone in selected_bones:
                 setattr(bone, attr, value)
-        
+
         col = layout.column(align=True)
         drawprops(col, b, ['wiggle_mass', 'wiggle_stiff', 'wiggle_stretch', 'wiggle_damp'])
         col.separator()
         col.prop(b, 'wiggle_gravity')
-        
+
         # Wind Object
         row = col.row(align=True)
         row.prop(b, 'wiggle_wind_ob')
-        
+
         # Apply wind object to all selected bones if changed
         if b.wiggle_wind_ob:
             set_props_for_selected('wiggle_wind_ob', b.wiggle_wind_ob)
-        
+
         sub = row.row(align=True)
         sub.ui_units_x = 5
         sub.prop(b, 'wiggle_wind', text='')
         col.separator()
-        
+
         # Collision settings
         col.prop(b, 'wiggle_collider_type', text='Collisions')
 
         collision = False
-        
+
         if b.wiggle_collider_type == 'Object':
             row = col.row(align=True)
             row.prop_search(b, 'wiggle_collider', context.scene, 'objects', text=' ')
-            
+
             # Apply to all selected bones if changed
             if b.wiggle_collider:
                 set_props_for_selected('wiggle_collider', b.wiggle_collider)
-                
+
                 if b.wiggle_collider.name in context.scene.objects:
                     collision = True
                 else:
@@ -1034,11 +1013,11 @@ class WIGGLE_PT_Tail(WigglePanel, bpy.types.Panel):
         else:
             row = col.row(align=True)
             row.prop_search(b, 'wiggle_collider_collection', bpy.data, 'collections', text=' ')
-            
+
             # Apply to all selected bones if changed
             if b.wiggle_collider_collection:
                 set_props_for_selected('wiggle_collider_collection', b.wiggle_collider_collection)
-                
+
                 if b.wiggle_collider_collection in context.scene.collection.children_recursive:
                     collision = True
                 else:
@@ -1047,18 +1026,18 @@ class WIGGLE_PT_Tail(WigglePanel, bpy.types.Panel):
         if collision:
             col = layout.column(align=True)
             drawprops(col, b, ['wiggle_radius', 'wiggle_friction', 'wiggle_bounce', 'wiggle_sticky'])
-        
+
         layout.prop(b, 'wiggle_chain')
 
 class WIGGLE_PT_Utilities(WigglePanel,bpy.types.Panel):
     bl_label = 'Global Wiggle Utilities'
     bl_parent_id = 'WIGGLE_PT_Settings'
     bl_options = {"DEFAULT_CLOSED"}
-    
+
     @classmethod
     def poll(cls,context):
         return context.scene.wiggle_enable
-    
+
     def draw(self,context):
         layout = self.layout
         layout.use_property_split=True
@@ -1070,16 +1049,16 @@ class WIGGLE_PT_Utilities(WigglePanel,bpy.types.Panel):
         col.operator('wiggle.reset')
         layout.prop(context.scene.wiggle, 'loop')
         layout.prop(context.scene.wiggle, 'iterations')
-        
+
 class WIGGLE_PT_Bake(WigglePanel,bpy.types.Panel):
     bl_label = 'Bake Wiggle'
     bl_parent_id = 'WIGGLE_PT_Utilities'
     bl_options = {"DEFAULT_CLOSED"}
-    
+
     @classmethod
     def poll(cls,context):
         return context.scene.wiggle_enable and context.object.wiggle_enable and context.mode == 'POSE'
-    
+
     def draw(self,context):
         layout = self.layout
         layout.use_property_split=True
@@ -1111,7 +1090,7 @@ class WIGGLE_PT_Fullbone_Collision(bpy.types.Panel):
 
 class WiggleBoneItem(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(override={'LIBRARY_OVERRIDABLE'})
-    
+
 class WiggleItem(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(override={'LIBRARY_OVERRIDABLE'})  
     list: bpy.props.CollectionProperty(type=WiggleBoneItem, override={'LIBRARY_OVERRIDABLE','USE_INSERTION'})    
@@ -1122,31 +1101,31 @@ class WiggleBone(bpy.types.PropertyGroup):
     position: bpy.props.FloatVectorProperty(subtype='TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     position_last: bpy.props.FloatVectorProperty(subtype='TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     velocity: bpy.props.FloatVectorProperty(subtype='VELOCITY', override={'LIBRARY_OVERRIDABLE'})
-    
+
     collision_point:bpy.props.FloatVectorProperty(subtype = 'TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     collision_ob: bpy.props.PointerProperty(type=bpy.types.Object, override={'LIBRARY_OVERRIDABLE'})
     collision_normal: bpy.props.FloatVectorProperty(subtype = 'TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     collision_col: bpy.props.PointerProperty(type=bpy.types.Collection,override={'LIBRARY_OVERRIDABLE'})
-    
+
     position_head: bpy.props.FloatVectorProperty(subtype='TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     position_last_head: bpy.props.FloatVectorProperty(subtype='TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     velocity_head: bpy.props.FloatVectorProperty(subtype='VELOCITY', override={'LIBRARY_OVERRIDABLE'})
-    
+
     collision_point_head:bpy.props.FloatVectorProperty(subtype = 'TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     collision_ob_head: bpy.props.PointerProperty(type=bpy.types.Object, override={'LIBRARY_OVERRIDABLE'})
     collision_normal_head: bpy.props.FloatVectorProperty(subtype = 'TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
-    
+
     position_tail: bpy.props.FloatVectorProperty(subtype='TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     position_last_tail: bpy.props.FloatVectorProperty(subtype='TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     velocity_tail: bpy.props.FloatVectorProperty(subtype='VELOCITY', override={'LIBRARY_OVERRIDABLE'})
-    
+
     collision_point_tail:bpy.props.FloatVectorProperty(subtype = 'TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
     collision_ob_tail: bpy.props.PointerProperty(type=bpy.types.Object, override={'LIBRARY_OVERRIDABLE'})
     collision_normal_tail: bpy.props.FloatVectorProperty(subtype = 'TRANSLATION', override={'LIBRARY_OVERRIDABLE'})
-    
+
 class WiggleObject(bpy.types.PropertyGroup):
     list: bpy.props.CollectionProperty(type=WiggleItem, override={'LIBRARY_OVERRIDABLE'})
- 
+
 class FullBoneCollisionSettings(bpy.types.PropertyGroup):
     enable_fullbone_collision: bpy.props.BoolProperty(
         name='Enable Full Bone Collision',
@@ -1168,7 +1147,7 @@ class FullBoneCollisionSettings(bpy.types.PropertyGroup):
         description='Sensitivity threshold for the dot product check during collisions',
         min=0.01, max=1.0, default=0.1, precision=2
     )
-   
+
 class WiggleScene(bpy.types.PropertyGroup):
     dt: bpy.props.FloatProperty()
     lastframe: bpy.props.IntProperty()
@@ -1184,9 +1163,8 @@ class WiggleScene(bpy.types.PropertyGroup):
     full_bone_collision: bpy.props.PointerProperty(type=FullBoneCollisionSettings)
 
 def register():
-    
+
     #WIGGLE TOGGLES
-    
     bpy.types.Scene.wiggle_enable = bpy.props.BoolProperty(
         name = 'Enable Scene',
         description = 'Enable wiggle on this scene',
@@ -1244,7 +1222,6 @@ def register():
         options={'HIDDEN'},
         update=lambda s, c: update_prop(s, c, 'wiggle_tail')
     )
-    
     bpy.types.PoseBone.wiggle_head_mute = bpy.props.BoolProperty(
         name = 'Bone Head Mute',
         description = "Mute wiggle on this bone's head",
@@ -1259,9 +1236,8 @@ def register():
         override={'LIBRARY_OVERRIDABLE'},
         update=lambda s, c: update_prop(s, c, 'wiggle_tail_mute')
     )
-    
+
     #TAIL PROPS
-    
     bpy.types.PoseBone.wiggle_mass = bpy.props.FloatProperty(
         name = 'Mass',
         description = 'Mass of bone',
@@ -1324,9 +1300,8 @@ def register():
         override={'LIBRARY_OVERRIDABLE'},
         update=lambda s, c: update_prop(s, c, 'wiggle_chain')
     )
-    
+
     #HEAD PROPS
-    
     bpy.types.PoseBone.wiggle_mass_head = bpy.props.FloatProperty(
         name = 'Mass',
         description = 'Mass of bone',
@@ -1389,9 +1364,8 @@ def register():
         override={'LIBRARY_OVERRIDABLE'},
         update=lambda s, c: update_prop(s, c, 'wiggle_chain_head')
     )
-    
+
     #TAIL COLLISION
-    
     bpy.types.PoseBone.wiggle_collider_type = bpy.props.EnumProperty(
         name='Collider Type',
         items=[('Object','Object','Collide with a selected mesh'),('Collection','Collection','Collide with all meshes in selected collection')],
@@ -1413,7 +1387,6 @@ def register():
         override={'LIBRARY_OVERRIDABLE'}, 
         update=lambda s, c: update_prop(s, c, 'wiggle_collider_collection')
     )
-    
     bpy.types.PoseBone.wiggle_radius = bpy.props.FloatProperty(
         name = 'Radius',
         description = 'Collision radius',
@@ -1449,9 +1422,8 @@ def register():
         override={'LIBRARY_OVERRIDABLE'},
         update=lambda s, c: update_prop(s, c, 'wiggle_sticky')
     )
-    
+
     #HEAD COLLISION
-    
     bpy.types.PoseBone.wiggle_collider_type_head = bpy.props.EnumProperty(
         name='Collider Type',
         items=[('Object','Object','Collide with a selected mesh'),('Collection','Collection','Collide with all meshes in selected collection')],
@@ -1473,7 +1445,6 @@ def register():
         override={'LIBRARY_OVERRIDABLE'}, 
         update=lambda s, c: update_prop(s, c, 'wiggle_collider_collection_head')
     )
-    
     bpy.types.PoseBone.wiggle_radius_head = bpy.props.FloatProperty(
         name = 'Radius',
         description = 'Collision radius',
@@ -1509,9 +1480,8 @@ def register():
         override={'LIBRARY_OVERRIDABLE'},
         update=lambda s, c: update_prop(s, c, 'wiggle_sticky_head')
     )
-    
+
     #internal variables
-    
     bpy.utils.register_class(WiggleBoneItem)
     bpy.utils.register_class(WiggleItem)
     bpy.utils.register_class(WiggleBone)
@@ -1521,7 +1491,7 @@ def register():
     bpy.types.Object.wiggle = bpy.props.PointerProperty(type=WiggleObject, override={'LIBRARY_OVERRIDABLE'})
     bpy.utils.register_class(WiggleScene)
     bpy.types.Scene.wiggle = bpy.props.PointerProperty(type=WiggleScene, override={'LIBRARY_OVERRIDABLE'})
-    
+
     bpy.utils.register_class(WiggleReset)
     bpy.utils.register_class(WiggleCopy)
     bpy.utils.register_class(WiggleSelect)
@@ -1532,7 +1502,7 @@ def register():
     bpy.utils.register_class(WIGGLE_PT_Utilities)
     bpy.utils.register_class(WIGGLE_PT_Bake)
     bpy.utils.register_class(WIGGLE_PT_Fullbone_Collision)
-    
+
     bpy.app.handlers.frame_change_pre.append(wiggle_pre)
     bpy.app.handlers.frame_change_post.append(wiggle_post)
     bpy.app.handlers.render_pre.append(wiggle_render_pre)
@@ -1557,13 +1527,13 @@ def unregister():
     bpy.utils.unregister_class(WIGGLE_PT_Utilities)
     bpy.utils.unregister_class(WIGGLE_PT_Bake)
     bpy.utils.unregister_class(WIGGLE_PT_Fullbone_Collision)
-    
+
     bpy.app.handlers.frame_change_pre.remove(wiggle_pre)
     bpy.app.handlers.frame_change_post.remove(wiggle_post)
     bpy.app.handlers.render_pre.remove(wiggle_render_pre)
     bpy.app.handlers.render_post.remove(wiggle_render_post)
     bpy.app.handlers.render_cancel.remove(wiggle_render_cancel)
     bpy.app.handlers.load_post.remove(wiggle_load)
-    
+
 if __name__ == "__main__":
     register()

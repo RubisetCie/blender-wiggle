@@ -1,0 +1,13 @@
+schema_version = "1.0.0"
+
+id = "blender_wiggle"
+name = "Blender Wiggle"
+maintainer = "Steve Miller"
+tagline = "Simulate spring-like physics on Bone transforms"
+version = "2.0.2"
+website = "https://github.com/RubisetCie/blender-wiggle"
+license = ["SPDX:GPL-3.0-or-later"]
+tags = ["Animation"]
+type = "add-on"
+
+blender_version_min = "4.2.0"
